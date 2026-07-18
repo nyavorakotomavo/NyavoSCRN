@@ -24,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,9 +34,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
-import com.nyavo.nyavoscrn.core.designsystem.theme.PixelPalette
 import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneActiveGlow
 import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneDeadColor
 import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneFalsePositiveColor
@@ -50,209 +47,191 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-private const val PIXEL_SIZE_PX = 18
-
-private data class TouchEffect(
-    val id: Long,
-    val center: Offset
+private data class TouchEffect(    val id: Long,
+    val position: Offset,
+    val ripple: Animatable<Float, *>,
+    val particles: List<Particle>
 )
+
+private data class Particle(
+    val angle: Float,
+    val distance: Float
+)
+
+private fun buildParticles(count: Int = 8): List<Particle> {
+    return List(count) {
+        Particle(
+            angle = Random.nextFloat() * 360f,
+            distance = 40f + Random.nextFloat() * 40f
+        )
+    }
+}
 
 @Composable
 fun PixelGridCanvas(
-    modifier: Modifier = Modifier,
     zones: List<TestZone>,
-    activeZoneId: Int?,
     rows: Int,
     cols: Int,
-    onZoneTouched: (Int, Offset) -> Unit
+    activeZoneId: Int?,
+    onZoneTap: (TestZone, Offset) -> Unit,
+    modifier: Modifier = Modifier,
+    pixelSizePx: Float = 20f
 ) {
     val haptic = LocalHapticFeedback.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
-    var canvasWidthPx by remember { mutableStateOf(0) }
-    var canvasHeightPx by remember { mutableStateOf(0) }
+    var canvasWidth by remember { mutableFloatStateOf(0f) }
+    var canvasHeight by remember { mutableFloatStateOf(0f) }
 
-    val pixelBitmap: ImageBitmap? = remember(canvasWidthPx, canvasHeightPx) {
-        buildPixelGridBitmap(canvasWidthPx, canvasHeightPx)
-    }
+    val touchEffects = remember { mutableStateListOf<TouchEffect>() }
+    val zoneScales = remember { mutableStateMapOf<Int, Animatable<Float, *>>() }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
+        initialValue = 0.35f,
+        targetValue = 0.9f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+            animation = tween(700, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
     )
-
-    val activeRipples = remember { mutableStateListOf<TouchEffect>() }
-    val rippleProgress = remember { mutableStateMapOf<Long, Float>() }
+    var baseBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
     Canvas(
         modifier = modifier
-            .onSizeChanged { size ->
-                canvasWidthPx = size.width
-                canvasHeightPx = size.height
-            }
-            .pointerInput(zones, activeZoneId, rows, cols) {
+            .pointerInput(zones, activeZoneId) {
                 detectTapGestures { offset ->
-                    val zone = findZoneAt(offset, zones, rows, cols, size.width.toFloat(), size.height.toFloat())
-                    if (zone != null && zone.id == activeZoneId) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (canvasWidth <= 0f || canvasHeight <= 0f) return@detectTapGestures
+                    val zoneWidthPx = canvasWidth / cols
+                    val zoneHeightPx = canvasHeight / rows
+                    val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
+                    val row = (offset.y / zoneHeightPx).toInt().coerceIn(0, rows - 1)
+                    val zone = zones.firstOrNull { it.row == row && it.col == col } ?: return@detectTapGestures
+                    if (zone.id != activeZoneId) return@detectTapGestures
 
-                        val effectId = System.nanoTime()
-                        val effect = TouchEffect(id = effectId, center = offset)
-                        activeRipples.add(effect)
-                        rippleProgress[effectId] = 0f
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
-                        coroutineScope.launch {
-                            animateRippleProgress(effectId, rippleProgress)
-                            activeRipples.removeAll { it.id == effectId }
-                            rippleProgress.remove(effectId)
-                        }
-
-                        onZoneTouched(zone.id, offset)
-                    }
-                }
-            }
-    ) {
-        pixelBitmap?.let { bmp ->
-            drawImage(bmp)
-        }
-
-        if (rows > 0 && cols > 0) {
-            val zoneWidth = size.width / cols
-            val zoneHeight = size.height / rows
-
-            zones.forEach { zone ->
-                val overlayColor: Color? = when {
-                    zone.id == activeZoneId -> ZoneActiveGlow.copy(alpha = pulseAlpha * 0.7f)
-                    zone.isFalsePositive -> ZoneFalsePositiveColor.copy(alpha = 0.65f)
-                    zone.isTested && !zone.isWorking -> ZoneDeadColor.copy(alpha = 0.55f)
-                    zone.isTested && zone.isWorking -> ZoneWorkingColor.copy(alpha = 0.6f)
-                    else -> null
-                }
-
-                if (overlayColor != null) {
-                    drawRect(
-                        color = overlayColor,
-                        topLeft = Offset(zone.col * zoneWidth, zone.row * zoneHeight),
-                        size = Size(zoneWidth, zoneHeight)
+                    val effect = TouchEffect(
+                        id = System.nanoTime(),
+                        position = offset,
+                        ripple = Animatable(0f),
+                        particles = buildParticles()
                     )
+                    touchEffects.add(effect)
+                    scope.launch {
+                        effect.ripple.animateTo(1f, tween(600, easing = FastOutSlowInEasing))
+                        touchEffects.remove(effect)
+                    }
+
+                    val scaleAnim = zoneScales.getOrPut(zone.id) { Animatable(1f) }
+                    scope.launch {
+                        scaleAnim.animateTo(0.95f, tween(90))
+                        scaleAnim.animateTo(1f, spring(stiffness = 200f))
+                    }
+
+                    onZoneTap(zone, offset)
                 }
+            }
+    ) {
+        if (canvasWidth != size.width || canvasHeight != size.height) {
+            canvasWidth = size.width
+            canvasHeight = size.height
+        }
+
+        if (baseBitmap == null || baseBitmap!!.width != size.width.toInt()) {
+            baseBitmap = createPixelGridBitmap(
+                widthPx = size.width.toInt().coerceAtLeast(1),
+                heightPx = size.height.toInt().coerceAtLeast(1),
+                pixelSizePx = pixelSizePx
+            )
+        }
+        baseBitmap?.let { drawImage(it) }
+
+        val zoneWidthPx = size.width / cols
+        val zoneHeightPx = size.height / rows
+
+        zones.forEach { zone ->
+            val left = zone.col * zoneWidthPx
+            val top = zone.row * zoneHeightPx
+
+            val overlayColor: Color? = when {
+                zone.id == activeZoneId -> ZoneActiveGlow.copy(alpha = pulseAlpha * 0.7f)
+                zone.isFalsePositive -> ZoneFalsePositiveColor.copy(alpha = 0.65f)
+                zone.isTested && !zone.isWorking -> ZoneDeadColor.copy(alpha = 0.55f)
+                zone.isTested && zone.isWorking -> ZoneWorkingColor.copy(alpha = 0.6f)
+                else -> null
+            }
+
+            if (overlayColor != null) {
+                val scale = zoneScales[zone.id]?.value ?: 1f
+                val cx = left + zoneWidthPx / 2f
+                val cy = top + zoneHeightPx / 2f
+                val w = zoneWidthPx * scale
+                val h = zoneHeightPx * scale
+                drawRect(
+                    color = overlayColor,
+                    topLeft = Offset(cx - w / 2f, cy - h / 2f),
+                    size = Size(w, h)
+                )
             }
         }
 
-        activeRipples.forEach { effect ->
-            val progress = rippleProgress[effect.id] ?: 0f
-            drawTouchEffect(effect.center, progress)
+        touchEffects.forEach { effect ->
+            drawTouchEffect(effect)
         }
     }
 }
 
-private fun findZoneAt(
-    offset: Offset,
-    zones: List<TestZone>,
-    rows: Int,
-    cols: Int,
-    width: Float,
-    height: Float
-): TestZone? {
-    if (rows <= 0 || cols <= 0 || width <= 0f || height <= 0f) return null
-    val zoneWidth = width / cols
-    val zoneHeight = height / rows
-    val col = (offset.x / zoneWidth).toInt().coerceIn(0, cols - 1)
-    val row = (offset.y / zoneHeight).toInt().coerceIn(0, rows - 1)
-    return zones.firstOrNull { it.row == row && it.col == col }
-}
-
-private suspend fun animateRippleProgress(id: Long, progressMap: SnapshotStateMap<Long, Float>) {
-    val animatable = Animatable(0f)
-    animatable.animateTo(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
-    ) {
-        progressMap[id] = value
-    }
-}
-
-private fun DrawScope.drawTouchEffect(offset: Offset, progress: Float) {
+private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
+    val progress = effect.ripple.value
+    val maxRadius = 90f
     drawCircle(
         color = Color(0xFFB300E6).copy(alpha = (1f - progress) * 0.6f),
-        radius = 90f * progress,
-        center = offset
+        radius = maxRadius * progress,
+        center = effect.position
     )
-
-    val particleCount = 8
-    val baseSeed = (offset.x + offset.y).toInt()
-    repeat(particleCount) { index ->
-        val random = Random(baseSeed + index)
-        val angle = random.nextFloat() * 360f
-        val distance = (40f + random.nextFloat() * 40f) * progress
-        val radians = Math.toRadians(angle.toDouble())
-        val particleOffset = Offset(
-            x = offset.x + (cos(radians) * distance).toFloat(),
-            y = offset.y + (sin(radians) * distance).toFloat()
-        )
+    effect.particles.forEach { particle ->
+        val rad = Math.toRadians(particle.angle.toDouble())
+        val dist = particle.distance * progress
+        val x = effect.position.x + (cos(rad) * dist).toFloat()        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)
         drawCircle(
-            color = Color(0xFF9900CC).copy(alpha = (1f - progress) * 0.5f),
-            radius = 6f * (1f - progress).coerceAtLeast(0.05f),
-            center = particleOffset
+            color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),
+            radius = 4f * (1f - progress * 0.5f),
+            center = Offset(x, y)
         )
     }
 }
 
-private fun buildPixelGridBitmap(widthPx: Int, heightPx: Int): ImageBitmap? {
-    if (widthPx <= 0 || heightPx <= 0) return null
-
-    val pixelSizePx = PIXEL_SIZE_PX
+private fun createPixelGridBitmap(
+    widthPx: Int,
+    heightPx: Int,
+    pixelSizePx: Float
+): ImageBitmap {
     val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val paint = Paint()
 
-    var colorIndex = 0
-    var y = 0
-    while (y < heightPx) {
-        var x = 0
-        while (x < widthPx) {
-            val baseColor = PixelPalette[colorIndex % PixelPalette.size]
-            colorIndex++
+    val cols = (widthPx / pixelSizePx).toInt() + 1
+    val rows = (heightPx / pixelSizePx).toInt() + 1
 
-            val topColor = baseColor.lighten(0.3f)
-            val leftColor = baseColor.lighten(0.2f)
-            val rightColor = baseColor.darken(0.2f)
-            val bottomColor = baseColor.darken(0.3f)
+    for (row in 0 until rows) {
+        for (col in 0 until cols) {
+            val x = col * pixelSizePx
+            val y = row * pixelSizePx
+            
+            // Palette simulée pour l'effet 3D (alternance de nuances)
+            val baseColor = if ((row + col) % 2 == 0) Color(0xFF530080) else Color(0xFF660099)
+            val lightColor = baseColor.lighten(0.3f)
+            val darkColor = baseColor.darken(0.3f)
 
-            val gradient = LinearGradient(
-                x.toFloat(),
-                y.toFloat(),
-                (x + pixelSizePx).toFloat(),
-                (y + pixelSizePx).toFloat(),
-                intArrayOf(
-                    topColor.toArgb(),
-                    leftColor.toArgb(),
-                    rightColor.toArgb(),
-                    bottomColor.toArgb()
-                ),
-                floatArrayOf(0f, 0.33f, 0.66f, 1f),
+            paint.shader = LinearGradient(
+                x, y, x + pixelSizePx, y + pixelSizePx,
+                lightColor.toArgb(), darkColor.toArgb(),
                 Shader.TileMode.CLAMP
             )
-
-            paint.shader = gradient
-            canvas.drawRect(
-                x.toFloat(),
-                y.toFloat(),
-                (x + pixelSizePx).toFloat(),
-                (y + pixelSizePx).toFloat(),
-                paint
-            )
-
-            x += pixelSizePx
+            canvas.drawRect(x, y, x + pixelSizePx, y + pixelSizePx, paint)
         }
-        y += pixelSizePx
     }
-
     return bitmap.asImageBitmap()
 }

@@ -1,4 +1,5 @@
 package com.nyavo.nyavoscrn.app
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

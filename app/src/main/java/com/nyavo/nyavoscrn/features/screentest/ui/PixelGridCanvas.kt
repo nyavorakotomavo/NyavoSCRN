@@ -97,7 +97,6 @@ fun PixelGridCanvas(
         label = "pulseAlpha"
     )
     var baseBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-
     Canvas(
         modifier = modifier
             .pointerInput(zones, activeZoneId) {
@@ -147,7 +146,6 @@ fun PixelGridCanvas(
             )
         }
         baseBitmap?.let { drawImage(it) }
-
         val zoneWidthPx = size.width / cols
         val zoneHeightPx = size.height / rows
 
@@ -194,9 +192,9 @@ private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
         val rad = Math.toRadians(particle.angle.toDouble())
         val dist = particle.distance * progress
         val x = effect.position.x + (cos(rad) * dist).toFloat()
-        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)        drawCircle(
-            color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),
-            radius = 4f * (1f - progress * 0.5f),
+        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)
+        drawCircle(
+            color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),            radius = 4f * (1f - progress * 0.5f),
             center = Offset(x, y)
         )
     }

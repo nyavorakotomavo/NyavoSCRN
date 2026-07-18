@@ -103,15 +103,23 @@ fun PixelGridCanvas(
             .pointerInput(zones, activeZoneId) {
                 detectTapGestures { offset ->
                     if (canvasWidth <= 0f || canvasHeight <= 0f) return@detectTapGestures
+                    
                     val zoneWidthPx = canvasWidth / cols
                     val zoneHeightPx = canvasHeight / rows
+                    
                     val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
                     val row = (offset.y / zoneHeightPx).toInt().coerceIn(0, rows - 1)
-                    val zone = zones.firstOrNull { it.row == row && it.col == col } ?: return@detectTapGestures
+                    
+                    val zone = zones.firstOrNull { 
+                        it.row == row && it.col == col 
+                    } ?: return@detectTapGestures
+                    
                     if (zone.id != activeZoneId) return@detectTapGestures
 
+                    // Retour haptique (vibration)
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
+                    // Crée l'effet de ripple
                     val effect = TouchEffect(
                         id = System.nanoTime(),
                         position = offset,
@@ -119,18 +127,25 @@ fun PixelGridCanvas(
                         particles = buildParticles()
                     )
                     touchEffects.add(effect)
+                    
                     scope.launch {
-                        effect.ripple.animateTo(1f, tween(600, easing = FastOutSlowInEasing))
+                        effect.ripple.animateTo(
+                            1f, 
+                            tween(600, easing = FastOutSlowInEasing)
+                        )
                         touchEffects.remove(effect)
                     }
 
-                    val scaleAnim = zoneScales.getOrPut(zone.id) { Animatable(1f) }
+                    // Animation de scale sur la zone
+                    val scaleAnim = zoneScales.getOrPut(zone.id) { 
+                        Animatable(1f) 
+                    }
                     scope.launch {
                         scaleAnim.animateTo(0.95f, tween(90))
                         scaleAnim.animateTo(1f, spring(stiffness = 200f))
                     }
 
-                    onZoneTap(zone, offset)
+                    // Notifie le changement d'état de la zone                    onZoneTap(zone, offset)
                 }
             }
     ) {
@@ -139,6 +154,7 @@ fun PixelGridCanvas(
             canvasHeight = size.height
         }
 
+        // Crée la grille de pixels en bitmap
         if (baseBitmap == null || baseBitmap!!.width != size.width.toInt()) {
             baseBitmap = createPixelGridBitmap(
                 widthPx = size.width.toInt().coerceAtLeast(1),
@@ -146,29 +162,44 @@ fun PixelGridCanvas(
                 pixelSizePx = pixelSizePx
             )
         }
+
+        // Dessine la grille de pixels
         baseBitmap?.let { drawImage(it) }
 
         val zoneWidthPx = size.width / cols
         val zoneHeightPx = size.height / rows
 
+        // Dessine les zones avec leurs couleurs selon l'état
         zones.forEach { zone ->
             val left = zone.col * zoneWidthPx
             val top = zone.row * zoneHeightPx
 
             val overlayColor: Color? = when {
-                zone.id == activeZoneId -> ZoneActiveGlow.copy(alpha = pulseAlpha * 0.7f)
-                zone.isFalsePositive -> ZoneFalsePositiveColor.copy(alpha = 0.65f)
-                zone.isTested && !zone.isWorking -> ZoneDeadColor.copy(alpha = 0.55f)
-                zone.isTested && zone.isWorking -> ZoneWorkingColor.copy(alpha = 0.6f)
+                // Zone active en cours de test (pulse en violet)
+                zone.id == activeZoneId -> 
+                    ZoneActiveGlow.copy(alpha = pulseAlpha * 0.7f)
+                
+                // Faux toucher détecté (bleu moyen)
+                zone.isFalsePositive -> 
+                    ZoneFalsePositiveColor.copy(alpha = 0.65f)
+                
+                // Zone morte (rouge)
+                zone.isTested && !zone.isWorking -> 
+                    ZoneDeadColor.copy(alpha = 0.55f)
+                
+                // Zone fonctionnelle testée (bleu clair)
+                zone.isTested && zone.isWorking -> 
+                    ZoneWorkingColor.copy(alpha = 0.6f)
+                
                 else -> null
             }
 
-            if (overlayColor != null) {
-                val scale = zoneScales[zone.id]?.value ?: 1f
+            if (overlayColor != null) {                val scale = zoneScales[zone.id]?.value ?: 1f
                 val cx = left + zoneWidthPx / 2f
                 val cy = top + zoneHeightPx / 2f
                 val w = zoneWidthPx * scale
                 val h = zoneHeightPx * scale
+                
                 drawRect(
                     color = overlayColor,
                     topLeft = Offset(cx - w / 2f, cy - h / 2f),
@@ -177,6 +208,7 @@ fun PixelGridCanvas(
             }
         }
 
+        // Dessine les effets de touch (ripple + particules)
         touchEffects.forEach { effect ->
             drawTouchEffect(effect)
         }
@@ -185,29 +217,33 @@ fun PixelGridCanvas(
 
 private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
     val progress = effect.ripple.value
+    val maxRadius = 90f
     
+    // Dessine le ripple (onde de choc)
     drawCircle(
         color = Color(0xFFB300E6).copy(alpha = (1f - progress) * 0.6f),
-        radius = 90f * progress,
+        radius = maxRadius * progress,
         center = effect.position
     )
     
+    // Dessine les particules
     effect.particles.forEach { particle ->
-        val angleRad = (particle.angle * 0.0174533f).toDouble()
-        val dist = particle.distance * progress        
+        val angleRad = Math.toRadians(particle.angle.toDouble())
+        val dist = particle.distance * progress
+        
         val cosVal = cos(angleRad).toFloat()
         val sinVal = sin(angleRad).toFloat()
         
         val x = effect.position.x + (cosVal * dist)
-        
         val y = effect.position.y + (sinVal * dist) - (progress * 60f)
         
         drawCircle(
-            color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),
+            color = Color(0xFFCC00FF).copy(
+                alpha = (1f - progress).coerceIn(0f, 1f)
+            ),
             radius = 4f * (1f - progress * 0.5f),
             center = Offset(x, y)
-        )
-    }
+        )    }
 }
 
 private fun createPixelGridBitmap(
@@ -215,7 +251,11 @@ private fun createPixelGridBitmap(
     heightPx: Int,
     pixelSizePx: Float
 ): ImageBitmap {
-    val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+    val bitmap = Bitmap.createBitmap(
+        widthPx, 
+        heightPx, 
+        Bitmap.Config.ARGB_8888
+    )
     val canvas = android.graphics.Canvas(bitmap)
     val paint = Paint()
 
@@ -226,17 +266,30 @@ private fun createPixelGridBitmap(
         for (col in 0 until cols) {
             val x = col * pixelSizePx
             val y = row * pixelSizePx
-            val baseColor = if ((row + col) % 2 == 0) Color(0xFF530080) else Color(0xFF660099)
+            
+            // Alterne les nuances de violet pour l'effet 3D
+            val baseColor = if ((row + col) % 2 == 0) {
+                Color(0xFF530080)
+            } else {
+                Color(0xFF660099)
+            }
+            
             val lightColor = baseColor.lighten(0.3f)
             val darkColor = baseColor.darken(0.3f)
 
             paint.shader = LinearGradient(
                 x, y, x + pixelSizePx, y + pixelSizePx,
-                lightColor.toArgb(), darkColor.toArgb(),
+                lightColor.toArgb(), 
+                darkColor.toArgb(),
                 Shader.TileMode.CLAMP
             )
-            canvas.drawRect(x, y, x + pixelSizePx, y + pixelSizePx, paint)
+            
+            canvas.drawRect(
+                x, y, 
+                x + pixelSizePx, 
+                y + pixelSizePx, 
+                paint
+            )
         }
     }
-    return bitmap.asImageBitmap()
-}
+    return bitmap.asImageBitmap()}

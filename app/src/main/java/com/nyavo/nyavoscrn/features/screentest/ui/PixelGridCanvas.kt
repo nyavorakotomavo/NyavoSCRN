@@ -16,6 +16,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -26,11 +27,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,30 +46,24 @@ import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneWorkingColor
 import com.nyavo.nyavoscrn.core.designsystem.theme.darken
 import com.nyavo.nyavoscrn.core.designsystem.theme.lighten
 import com.nyavo.nyavoscrn.features.screentest.domain.TestZone
-import kotlinx.coroutines.launch
-import kotlin.math.cos
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launchimport kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
-private data class TouchEffect(    val id: Long,
-    val position: Offset,
-    val ripple: Animatable<Float, *>,
-    val particles: List<Particle>
+// Data classes pour les effets visuels
+private data class TouchRipple(
+    val pos: Offset,
+    val startTime: Long
 )
 
 private data class Particle(
+    val origin: Offset,
+    val startTime: Long,
     val angle: Float,
-    val distance: Float
+    val speed: Float
 )
-
-private fun buildParticles(count: Int = 8): List<Particle> {
-    return List(count) {
-        Particle(
-            angle = Random.nextFloat() * 360f,
-            distance = 40f + Random.nextFloat() * 40f
-        )
-    }
-}
 
 @Composable
 fun PixelGridCanvas(
@@ -83,19 +81,40 @@ fun PixelGridCanvas(
     var canvasWidth by remember { mutableFloatStateOf(0f) }
     var canvasHeight by remember { mutableFloatStateOf(0f) }
 
-    val touchEffects = remember { mutableStateListOf<TouchEffect>() }
-    val zoneScales = remember { mutableStateMapOf<Int, Animatable<Float, *>>() }
+    // Système de ripple basé sur le temps (comme dans le code original)
+    val touchRipples = remember { mutableStateListOf<TouchRipple>() }
+    val particles = remember { mutableStateListOf<Particle>() }
 
+    // Animation de pulse pour la zone active
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(        initialValue = 0.4f,
         targetValue = 0.9f,
         animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = LinearEasing),
+            animation = tween(800),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
     )
+
+    // Nettoyage automatique des effets expirés
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(16L)
+            val now = System.currentTimeMillis()
+            touchRipples.removeAll { now - it.startTime > 600 }
+            particles.removeAll { now - it.startTime > 500 }
+        }
+    }
+
     var baseBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
     Canvas(
@@ -116,36 +135,21 @@ fun PixelGridCanvas(
                     
                     if (zone.id != activeZoneId) return@detectTapGestures
 
-                    // Retour haptique (vibration)
+                    // Retour haptique
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
-                    // Crée l'effet de ripple
-                    val effect = TouchEffect(
-                        id = System.nanoTime(),
-                        position = offset,
-                        ripple = Animatable(0f),
-                        particles = buildParticles()
-                    )
-                    touchEffects.add(effect)
-                    
-                    scope.launch {
-                        effect.ripple.animateTo(
-                            1f, 
-                            tween(600, easing = FastOutSlowInEasing)
-                        )
-                        touchEffects.remove(effect)
+                    // Ajoute le ripple
+                    val now = System.currentTimeMillis()
+                    touchRipples.add(TouchRipple(offset, now))
+
+                    // Ajoute les particules (8 particules comme dans l'original)
+                    repeat(8) {
+                        val angle = Random.nextFloat() * 360f
+                        val speed = Random.nextFloat() * 80f + 20f                        particles.add(Particle(offset, now, angle, speed))
                     }
 
-                    // Animation de scale sur la zone
-                    val scaleAnim = zoneScales.getOrPut(zone.id) { 
-                        Animatable(1f) 
-                    }
-                    scope.launch {
-                        scaleAnim.animateTo(0.95f, tween(90))
-                        scaleAnim.animateTo(1f, spring(stiffness = 200f))
-                    }
-
-                    // Notifie le changement d'état de la zone                    onZoneTap(zone, offset)
+                    // Notifie le changement d'état
+                    onZoneTap(zone, offset)
                 }
             }
     ) {
@@ -154,7 +158,7 @@ fun PixelGridCanvas(
             canvasHeight = size.height
         }
 
-        // Crée la grille de pixels en bitmap
+        // Crée la grille de pixels
         if (baseBitmap == null || baseBitmap!!.width != size.width.toInt()) {
             baseBitmap = createPixelGridBitmap(
                 widthPx = size.width.toInt().coerceAtLeast(1),
@@ -163,87 +167,108 @@ fun PixelGridCanvas(
             )
         }
 
-        // Dessine la grille de pixels
         baseBitmap?.let { drawImage(it) }
 
         val zoneWidthPx = size.width / cols
         val zoneHeightPx = size.height / rows
 
-        // Dessine les zones avec leurs couleurs selon l'état
+        // Dessine les zones avec leurs couleurs
         zones.forEach { zone ->
             val left = zone.col * zoneWidthPx
             val top = zone.row * zoneHeightPx
+            val rect = Rect(left, top, left + zoneWidthPx, top + zoneHeightPx)
 
-            val overlayColor: Color? = when {
-                // Zone active en cours de test (pulse en violet)
-                zone.id == activeZoneId -> 
-                    ZoneActiveGlow.copy(alpha = pulseAlpha * 0.7f)
-                
-                // Faux toucher détecté (bleu moyen)
-                zone.isFalsePositive -> 
-                    ZoneFalsePositiveColor.copy(alpha = 0.65f)
-                
-                // Zone morte (rouge)
-                zone.isTested && !zone.isWorking -> 
-                    ZoneDeadColor.copy(alpha = 0.55f)
-                
-                // Zone fonctionnelle testée (bleu clair)
-                zone.isTested && zone.isWorking -> 
-                    ZoneWorkingColor.copy(alpha = 0.6f)
-                
-                else -> null
+            val baseColor = when {
+                zone.isFalsePositive -> Color(0xFF42A5F5) // Bleu moyen
+                zone.isTested && !zone.isWorking -> Color(0xFFE53935) // Rouge
+                zone.isTested && zone.isWorking -> Color(0xFF81D4FA) // Bleu clair
+                else -> Color(0xFF9C27B0) // Violet par défaut
             }
 
-            if (overlayColor != null) {                val scale = zoneScales[zone.id]?.value ?: 1f
-                val cx = left + zoneWidthPx / 2f
-                val cy = top + zoneHeightPx / 2f
-                val w = zoneWidthPx * scale
-                val h = zoneHeightPx * scale
-                
+            val isActive = zone.id == activeZoneId
+            val drawColor = if (isActive) {
+                baseColor.copy(alpha = pulseAlpha)
+            } else {
+                baseColor
+            }
+
+            drawRect(
+                color = drawColor,
+                topLeft = rect.topLeft,                size = rect.size
+            )
+
+            // Contour pulsant pour la zone active
+            if (isActive) {
+                val strokeW = 3f
+                val pulseRect = rect.inflate((pulseScale - 1f) * 10f)
                 drawRect(
-                    color = overlayColor,
-                    topLeft = Offset(cx - w / 2f, cy - h / 2f),
-                    size = Size(w, h)
+                    color = Color(0xFFE1BEE7),
+                    topLeft = pulseRect.topLeft,
+                    size = pulseRect.size,
+                    style = Stroke(width = strokeW)
+                )
+            }
+
+            // Marqueur pour les zones mortes
+            if (zone.isTested && !zone.isWorking) {
+                val cx = rect.center.x
+                val cy = rect.center.y
+                val r = min(zoneWidthPx, zoneHeightPx) / 6f
+                drawCircle(
+                    color = Color(0xFF8B0000),
+                    radius = r,
+                    center = Offset(cx, cy)
                 )
             }
         }
 
-        // Dessine les effets de touch (ripple + particules)
-        touchEffects.forEach { effect ->
-            drawTouchEffect(effect)
-        }
+        // Dessine les effets de touch
+        drawTouchEffects(touchRipples, particles)
     }
 }
 
-private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
-    val progress = effect.ripple.value
-    val maxRadius = 90f
-    
-    // Dessine le ripple (onde de choc)
-    drawCircle(
-        color = Color(0xFFB300E6).copy(alpha = (1f - progress) * 0.6f),
-        radius = maxRadius * progress,
-        center = effect.position
-    )
-    
-    // Dessine les particules
-    effect.particles.forEach { particle ->
-        val angleRad = Math.toRadians(particle.angle.toDouble())
-        val dist = particle.distance * progress
+private fun DrawScope.drawTouchEffects(
+    ripples: List<TouchRipple>,
+    particles: List<Particle>
+) {
+    val now = System.currentTimeMillis()
+
+    // Dessine les ripples
+    ripples.forEach { ripple ->
+        val elapsed = now - ripple.startTime
+        val progress = elapsed / 600f
+        if (progress >= 1f) return@forEach
         
-        val cosVal = cos(angleRad).toFloat()
-        val sinVal = sin(angleRad).toFloat()
-        
-        val x = effect.position.x + (cosVal * dist)
-        val y = effect.position.y + (sinVal * dist) - (progress * 60f)
+        val radius = progress * 120f
+        val alpha = 1f - progress
         
         drawCircle(
-            color = Color(0xFFCC00FF).copy(
-                alpha = (1f - progress).coerceIn(0f, 1f)
-            ),
-            radius = 4f * (1f - progress * 0.5f),
-            center = Offset(x, y)
-        )    }
+            color = Color(0xFFCE93D8).copy(alpha = alpha),            radius = radius,
+            center = ripple.pos,
+            style = Stroke(width = 4f)
+        )
+    }
+
+    // Dessine les particules
+    particles.forEach { p ->
+        val elapsed = now - p.startTime
+        val progress = elapsed / 500f
+        if (progress >= 1f) return@forEach
+        
+        val distance = p.speed * progress
+        val rad = Math.toRadians(p.angle.toDouble())
+        val dx = (cos(rad) * distance).toFloat()
+        val dy = (sin(rad) * distance).toFloat()
+        val pos = Offset(p.origin.x + dx, p.origin.y + dy)
+        val alpha = 1f - progress
+        val size = (1f - progress) * 8f
+        
+        drawCircle(
+            color = Color(0xFFFFE082).copy(alpha = alpha),
+            radius = size,
+            center = pos
+        )
+    }
 }
 
 private fun createPixelGridBitmap(
@@ -267,9 +292,7 @@ private fun createPixelGridBitmap(
             val x = col * pixelSizePx
             val y = row * pixelSizePx
             
-            // Alterne les nuances de violet pour l'effet 3D
-            val baseColor = if ((row + col) % 2 == 0) {
-                Color(0xFF530080)
+            val baseColor = if ((row + col) % 2 == 0) {                Color(0xFF530080)
             } else {
                 Color(0xFF660099)
             }
@@ -292,4 +315,5 @@ private fun createPixelGridBitmap(
             )
         }
     }
-    return bitmap.asImageBitmap()}
+    return bitmap.asImageBitmap()
+}

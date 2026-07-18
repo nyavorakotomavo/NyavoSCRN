@@ -1,17 +1,29 @@
 package com.nyavo.nyavoscrn.core.designsystem.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val DarkPurpleColorScheme = darkColorScheme(
-    primary = Color(0xFFBB86FC),
-    background = Color(0xFF0A0014),
-    surface = Color(0xFF120024)
+private val NyavoSCRNColorScheme = darkColorScheme(
+    primary = BlueViolet50,
+    secondary = BlueViolet300,
+    background = BlueViolet900,
+    surface = BlueViolet800,
+    onPrimary = Color(0xFFFFFFFF),
+    onBackground = Color(0xFFFFFFFF),
+    onSurface = Color(0xFFFFFFFF)
 )
 
 @Composable
-fun NyavoSCRNTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = DarkPurpleColorScheme, content = content)
+fun NyavoSCRNTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = NyavoSCRNColorScheme,
+        typography = MaterialTheme.typography,
+        content = content
+    )
 }

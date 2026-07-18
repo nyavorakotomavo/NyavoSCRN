@@ -13,37 +13,28 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 
-/**
- * Gestionnaire central des boutons flottants.
- * Gère la persistance locale et la logique de redirection.
- */
-class FloatingButtonManager private constructor(
-    context: Context
-) {
+class FloatingButtonManager private constructor(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "floating_buttons_prefs"
-        private const val KEY_BUTTONS = "buttons_json"
+        private const val KEY_BUTTONS = "buttons"
         private const val MAX_BUTTONS = 5
 
         @Volatile
- 
-       private var instance: FloatingButtonManager? = null
+        private var instance: FloatingButtonManager? = null
 
         fun getInstance(context: Context): FloatingButtonManager {
             return instance ?: synchronized(this) {
-                instance ?: FloatingButtonManager(
-
-
-                    context.applicationContext
-                ).also { instance = it }
+                instance ?: FloatingButtonManager(context.applicationContext).also {
+                    instance = it
+                }
             }
         }
     }
 
-    private val prefs: SharedPreferences = context
-        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    
+    private val prefs: SharedPreferences = context.getSharedPreferences(
+        PREFS_NAME, Context.MODE_PRIVATE
+    )
     private val gson = Gson()
 
     private val _buttons = MutableStateFlow<List<FloatingButtonEntity>>(emptyList())
@@ -51,31 +42,22 @@ class FloatingButtonManager private constructor(
 
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
-    private var workingZones: List<TestZone> = emptyList()
+
+    private var _workingZones: List<TestZone> = emptyList()
 
     init {
         loadButtons()
     }
-
-    /**
-     * Met à jour la liste des zones fonctionnelles de l'écran.
-     * Utilisé pour calculer où rediriger les touchers.
-     */
     fun setWorkingZones(zones: List<TestZone>) {
-        workingZones = zones.filter { it.isWorking }
+        _workingZones = zones.filter { it.isWorking }
     }
 
     fun toggleEditMode() {
         _isEditMode.update { !it }
     }
 
-    /**
-     * Ajoute un nouveau bouton. Retourne false si la limite est atteinte.
-     */
     fun addButton(x: Float, y: Float): Boolean {
-        if (_buttons.value.size >= MAX_BUTTONS) {
-            return false
-        }
+        if (_buttons.value.size >= MAX_BUTTONS) return false
         
         val newButton = FloatingButtonEntity(
             id = UUID.randomUUID().toString(),
@@ -84,7 +66,7 @@ class FloatingButtonManager private constructor(
             iconType = FloatingButtonEntity.IconType.PLUS
         )
         
-        _buttons.update { currentList -> currentList + newButton }
+        _buttons.update { it + newButton }
         saveButtons()
         return true
     }
@@ -99,41 +81,30 @@ class FloatingButtonManager private constructor(
     }
 
     fun updateButton(button: FloatingButtonEntity) {
-        _buttons.update { list ->            list.map { 
-                if (it.id == button.id) button else it 
-            }
+        _buttons.update { list ->
+            list.map { if (it.id == button.id) button else it }
         }
         saveButtons()
     }
 
     fun removeButton(id: String) {
-        _buttons.update { list -> 
-            list.filter { btn -> btn.id != id } 
-        }
+        _buttons.update { it.filter { btn -> btn.id != id } }
         saveButtons()
     }
 
-    /**
-     * Trouve le centre de la zone fonctionnelle la plus proche.
-     */
-    fun findNearestWorkingZone(
-        buttonPosition: Offset
-    ): Offset? {
+    fun findNearestWorkingZone(buttonPosition: Offset): Offset? {
+        val workingZones = _workingZones
         if (workingZones.isEmpty()) return null
 
-        var nearestZone: TestZone? = null
-        var minDistance = Float.MAX_VALUE
+        var nearestZone: TestZone? = null        var minDistance = Float.MAX_VALUE
 
         for (zone in workingZones) {
-            // Estimation grossière du centre de la zone logique
-            val centerX = zone.col * 100f + 50f 
-            val centerY = zone.row * 100f + 50f
-            
+            val centerX = (zone.col * 100f) + 50f
+            val centerY = (zone.row * 100f) + 50f
             val distance = kotlin.math.hypot(
                 centerX - buttonPosition.x,
                 centerY - buttonPosition.y
             )
-
             if (distance < minDistance) {
                 minDistance = distance
                 nearestZone = zone
@@ -141,18 +112,16 @@ class FloatingButtonManager private constructor(
         }
 
         return nearestZone?.let {
-            Offset(
-                it.col * 100f + 50f, 
-                it.row * 100f + 50f
-            )
+            Offset((it.col * 100f) + 50f, (it.row * 100f) + 50f)
         }
     }
 
-    private fun loadButtons() {        val json = prefs.getString(KEY_BUTTONS, null) ?: return
+    private fun loadButtons() {
+        val json = prefs.getString(KEY_BUTTONS, null) ?: return
         val type = object : TypeToken<List<FloatingButtonEntity>>() {}.type
         
         try {
-            val loaded: List<FloatingButtonEntity> = gson.fromJson(json, type)
+            val loaded: List<FloatingButtonEntity> = gson.fromJson(json, type) ?: emptyList()
             _buttons.value = loaded.take(MAX_BUTTONS)
         } catch (e: Exception) {
             _buttons.value = emptyList()
@@ -164,5 +133,3 @@ class FloatingButtonManager private constructor(
         prefs.edit().putString(KEY_BUTTONS, json).apply()
     }
 }
-
-

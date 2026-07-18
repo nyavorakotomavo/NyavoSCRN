@@ -113,14 +113,15 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
             }
 
             ScreenTestPhase.FalsePositiveDetection -> {
+                val configuration = LocalConfiguration.current
+                val screenWidth = configuration.screenWidthDp.toFloat()
+                val screenHeight = configuration.screenHeightDp.toFloat()
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
                             detectTapGestures { offset ->
-                                val configuration = LocalConfiguration.current
-                                val screenWidth = configuration.screenWidthDp.toFloat()
-                                val screenHeight = configuration.screenHeightDp.toFloat()
                                 val zoneWidthPx = screenWidth / cols
                                 val zoneHeightPx = screenHeight / rows
                                 val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
@@ -144,8 +145,8 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                         phase = phase,
                         currentZoneIndex = currentZoneIndex,
                         totalZones = zones.size
-                    )
-                }
+                    )                }
+
                 LaunchedEffect(Unit) {
                     delay(ScreenTestEngine.FALSE_POSITIVE_DURATION_MS)
                     phase = ScreenTestPhase.Completed
@@ -193,8 +194,8 @@ private fun ResultsScreen(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 32.dp)
-        ) {            Text(
+            modifier = Modifier.padding(top = 32.dp)        ) {
+            Text(
                 text = "Test terminé",
                 style = MaterialTheme.typography.headlineLarge,
                 color = Color.White
@@ -242,8 +243,8 @@ private fun ResultsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = onRestart,
-                modifier = Modifier.fillMaxWidth()            ) {
+                onClick = onRestart,                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Recommencer le test")
             }
             Button(

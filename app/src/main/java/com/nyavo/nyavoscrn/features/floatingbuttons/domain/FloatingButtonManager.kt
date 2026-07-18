@@ -14,122 +14,67 @@ import kotlinx.coroutines.flow.update
 import java.util.UUID
 
 class FloatingButtonManager private constructor(context: Context) {
-
     companion object {
-        private const val PREFS_NAME = "floating_buttons_prefs"
-        private const val KEY_BUTTONS = "buttons"
-        private const val MAX_BUTTONS = 5
-
-        @Volatile
-        private var instance: FloatingButtonManager? = null
-
-        fun getInstance(context: Context): FloatingButtonManager {
-            return instance ?: synchronized(this) {
-                instance ?: FloatingButtonManager(
-                    context.applicationContext
-                ).also { instance = it }
-            }
+        private const val PREFS = "fb_prefs"
+        private const val KEY = "buttons"
+        private const val MAX = 5
+        @Volatile private var instance: FloatingButtonManager? = null
+        fun getInstance(ctx: Context): FloatingButtonManager {
+            return instance ?: synchronized(this) { instance ?: FloatingButtonManager(ctx.applicationContext).also { instance = it } }
         }
     }
-
-    private val prefs: SharedPreferences = context
-        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val gson = Gson()
-
     private val _buttons = MutableStateFlow<List<FloatingButtonEntity>>(emptyList())
     val buttons: StateFlow<List<FloatingButtonEntity>> = _buttons.asStateFlow()
-
-    private val _isEditMode = MutableStateFlow(false)
-    val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
-
+    private val _edit = MutableStateFlow(false)
+    val isEditMode: StateFlow<Boolean> = _edit.asStateFlow()
     private var _workingZones: List<TestZone> = emptyList()
-
-    init {
-        loadButtons()
-    }
-    fun setWorkingZones(zones: List<TestZone>) {
-        _workingZones = zones.filter { it.isWorking }
-    }
-
-    fun toggleEditMode() {
-        _isEditMode.update { !it }
-    }
-
+    init { loadButtons() }
+    
+    fun setWorkingZones(zones: List<TestZone>) { _workingZones = zones.filter { it.isWorking } }
+    fun toggleEditMode() { _edit.update { !it } }
+    
     fun addButton(x: Float, y: Float): Boolean {
-        if (_buttons.value.size >= MAX_BUTTONS) return false
-        
-        val newButton = FloatingButtonEntity(
-            id = UUID.randomUUID().toString(),
-            x = x,
-            y = y,
-            iconType = FloatingButtonEntity.IconType.PLUS
-        )
-        
-        _buttons.update { it + newButton }
+        if (_buttons.value.size >= MAX) return false
+        val newBtn = FloatingButtonEntity(id = UUID.randomUUID().toString(), x = x, y = y, iconType = FloatingButtonEntity.IconType.PLUS)
+        _buttons.update { it + newBtn }
         saveButtons()
         return true
     }
-
     fun updateButtonPosition(id: String, x: Float, y: Float) {
-        _buttons.update { list ->
-            list.map { btn ->
-                if (btn.id == id) btn.copy(x = x, y = y) else btn
-            }
-        }
+        _buttons.update { list -> list.map { btn -> if (btn.id == id) btn.copy(x = x, y = y) else btn } }
         saveButtons()
     }
-
-    fun updateButton(button: FloatingButtonEntity) {
-        _buttons.update { list ->
-            list.map { if (it.id == button.id) button else it }
-        }
+    fun updateButton(btn: FloatingButtonEntity) {
+        _buttons.update { list -> list.map { if (it.id == btn.id) btn else it } }
         saveButtons()
     }
-
     fun removeButton(id: String) {
-        _buttons.update { it.filter { btn -> btn.id != id } }
+        _buttons.update { it.filter { b -> b.id != id } }
         saveButtons()
     }
-
-    fun findNearestWorkingZone(buttonPosition: Offset): Offset? {
-        val workingZones = _workingZones
-        if (workingZones.isEmpty()) return null
-
-        var nearestZone: TestZone? = null        var minDistance = Float.MAX_VALUE
-
-        for (zone in workingZones) {
-            val centerX = (zone.col * 100f) + 50f
-            val centerY = (zone.row * 100f) + 50f
-            val distance = kotlin.math.hypot(
-                centerX - buttonPosition.x,
-                centerY - buttonPosition.y
-            )
-            if (distance < minDistance) {
-                minDistance = distance
-                nearestZone = zone
-            }
+    fun findNearestWorkingZone(pos: Offset): Offset? {
+        if (_workingZones.isEmpty()) return null
+        var nearest: TestZone? = null
+        var minDist = Float.MAX_VALUE
+        for (zone in _workingZones) {
+            val cx = (zone.col * 100f) + 50f
+            val cy = (zone.row * 100f) + 50f
+            val dist = kotlin.math.hypot(cx - pos.x, cy - pos.y)
+            if (dist < minDist) { minDist = dist; nearest = zone }
         }
-
-        return nearestZone?.let {
-            Offset((it.col * 100f) + 50f, (it.row * 100f) + 50f)
-        }
+        return nearest?.let { Offset((it.col * 100f) + 50f, (it.row * 100f) + 50f) }
     }
-
     private fun loadButtons() {
-        val json = prefs.getString(KEY_BUTTONS, null) ?: return
+        val json = prefs.getString(KEY, null) ?: return
         val type = object : TypeToken<List<FloatingButtonEntity>>() {}.type
-        
         try {
             val loaded: List<FloatingButtonEntity> = gson.fromJson(json, type) ?: emptyList()
-            _buttons.value = loaded.take(MAX_BUTTONS)
-        } catch (e: Exception) {
-            _buttons.value = emptyList()
-        }
+            _buttons.value = loaded.take(MAX)
+        } catch (e: Exception) { _buttons.value = emptyList() }
     }
-
     private fun saveButtons() {
-        val json = gson.toJson(_buttons.value)
-        prefs.edit().putString(KEY_BUTTONS, json).apply()
+        prefs.edit().putString(KEY, gson.toJson(_buttons.value)).apply()
     }
 }

@@ -74,7 +74,7 @@ class FloatingButtonService : Service(), LifecycleOwner, SavedStateRegistryOwner
         val channel = NotificationChannel(CHANNEL_ID, "Boutons flottants", NotificationManager.IMPORTANCE_LOW).apply { description = "Service actif" }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         val pi = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Builder(this, CHANNEL_ID).setContentTitle("NyavoSCRN").setContentText("Boutons actifs").setSmallIcon(android.R.drawable.ic_menu_compass).setContentIntent(pi).setOngoing(true).build()
+        return Notification.Builder(this, CHANNEL_ID).setContentTitle("NyavoSCRN").setContentText("Boutons activs").setSmallIcon(android.R.drawable.ic_menu_compass).setContentIntent(pi).setOngoing(true).build()
     }
     override fun onDestroy() {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)

@@ -1,9 +1,5 @@
 package com.nyavo.nyavoscrn.features.floatingbuttons.data
 
-import androidx.compose.ui.graphics.Color
-import kotlinx.serialization.Serializable
-
-@Serializable
 data class FloatingButtonEntity(
     val id: String,
     val x: Float,

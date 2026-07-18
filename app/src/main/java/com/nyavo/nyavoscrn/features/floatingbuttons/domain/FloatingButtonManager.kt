@@ -25,16 +25,16 @@ class FloatingButtonManager private constructor(context: Context) {
 
         fun getInstance(context: Context): FloatingButtonManager {
             return instance ?: synchronized(this) {
-                instance ?: FloatingButtonManager(context.applicationContext).also {
-                    instance = it
-                }
+                instance ?: FloatingButtonManager(
+                    context.applicationContext
+                ).also { instance = it }
             }
         }
     }
 
-    private val prefs: SharedPreferences = context.getSharedPreferences(
-        PREFS_NAME, Context.MODE_PRIVATE
-    )
+    private val prefs: SharedPreferences = context
+        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    
     private val gson = Gson()
 
     private val _buttons = MutableStateFlow<List<FloatingButtonEntity>>(emptyList())

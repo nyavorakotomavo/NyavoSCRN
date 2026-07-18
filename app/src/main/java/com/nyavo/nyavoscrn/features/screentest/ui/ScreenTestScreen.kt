@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGridimport androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +48,6 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
     val activeZoneId = if (phase == ScreenTestPhase.ActiveTest && currentZoneIndex < zones.size) {
         zones[currentZoneIndex].id
     } else null
-
     Box(modifier = modifier.fillMaxSize().background(Violet900)) {
 
         when (phase) {
@@ -58,7 +58,8 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                         .pointerInput(Unit) {
                             detectTapGestures {
                                 phase = ScreenTestPhase.ActiveTest
-                            }                        }
+                            }
+                        }
                 ) {
                     PixelGridCanvas(
                         zones = zones,
@@ -95,8 +96,7 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .padding(24.dp)
-                )
-            }
+                )            }
 
             ScreenTestPhase.FalsePositiveDetection -> {
                 Box(
@@ -107,7 +107,8 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                                 val zoneWidthPx = size.width / cols
                                 val zoneHeightPx = size.height / rows
                                 val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
-                                val row = (offset.y / zoneHeightPx).toInt().coerceIn(0, rows - 1)                                val zone = zones.firstOrNull { it.row == row && it.col == col }
+                                val row = (offset.y / zoneHeightPx).toInt().coerceIn(0, rows - 1)
+                                val zone = zones.firstOrNull { it.row == row && it.col == col }
                                 if (zone != null) {
                                     zones = ScreenTestEngine.markFalsePositive(zones, zone.id)
                                 }
@@ -141,11 +142,10 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                         currentZoneIndex = 0
                         phase = ScreenTestPhase.Instructions
                     },
-                    onSaveProfile = { /* TODO: brancher ProfileStorage */ }
+                    onSaveProfile = { }
                 )
             }
-        }
-    }
+        }    }
 }
 
 @Composable
@@ -156,7 +156,8 @@ private fun ResultsScreen(
     onRestart: () -> Unit,
     onSaveProfile: () -> Unit
 ) {
-    Column(        modifier = Modifier
+    Column(
+        modifier = Modifier
             .fillMaxSize()
             .background(Violet900)
             .padding(24.dp),
@@ -193,8 +194,7 @@ private fun ResultsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onRestart, modifier = Modifier.fillMaxWidth()) {
-                Text("Recommencer")
-            }
+                Text("Recommencer")            }
             Button(onClick = onSaveProfile, modifier = Modifier.fillMaxWidth()) {
                 Text("Sauvegarder le profil")
             }

@@ -1,10 +1,7 @@
 package com.nyavo.nyavoscrn.app
 
 import android.content.Intent
-import androidx.compose.material.icons.filled.TouchApp
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -46,31 +43,23 @@ import com.nyavo.nyavoscrn.core.designsystem.theme.NyavoSCRNTheme
 import com.nyavo.nyavoscrn.features.floatingbuttons.service.FloatingButtonService
 import com.nyavo.nyavoscrn.features.screentest.ui.ScreenTestScreen
 
-/**
- * Activité principale de l'application NyavoSCRN.
- * Sert de tableau de bord pour naviguer entre les fonctionnalités. */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            NyavoSCRNTheme {
+        setContent {            NyavoSCRNTheme {
                 MainDashboard()
             }
         }
     }
 }
 
-/**
- * Tableau de bord principal avec navigation vers les features.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboard() {
     var showScreenTest by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Si l'utilisateur lance le test, on affiche l'écran de test
     if (showScreenTest) {
         ScreenTestScreen()
     } else {
@@ -78,10 +67,7 @@ fun MainDashboard() {
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            "NyavoSCRN",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("NyavoSCRN", fontWeight = FontWeight.Bold)
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -97,21 +83,20 @@ fun MainDashboard() {
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)            ) {
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
                 Text(
                     "Tableau de bord",
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                // Carte 1 : Test d'écran
                 Card(
                     onClick = { showScreenTest = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
+                    )                ) {
                     Row(
                         modifier = Modifier
                             .padding(20.dp)
@@ -138,15 +123,11 @@ fun MainDashboard() {
                     }
                 }
 
-                // Carte 2 : Boutons flottants
-                var isServiceRunning by remember {
-                    mutableStateOf(
-                        FloatingButtonService.isRunning(context)
-                    )
-                }
+                var isServiceRunning by remember { mutableStateOf(false) }
 
                 Card(
-                    modifier = Modifier.fillMaxWidth(),                    colors = CardDefaults.cardColors(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer
                     )
                 ) {
@@ -164,8 +145,7 @@ fun MainDashboard() {
                                 Text(
                                     "Boutons flottants",
                                     style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                    fontWeight = FontWeight.Bold                                )
                                 Text(
                                     "Contrôle hors zones mortes",
                                     style = MaterialTheme.typography.bodyMedium
@@ -176,16 +156,7 @@ fun MainDashboard() {
                                 onCheckedChange = { enabled ->
                                     isServiceRunning = enabled
                                     if (enabled) {
-                                        if (Settings.canDrawOverlays(context)) {
-                                            FloatingButtonService.start(context)
-                                        } else {
-                                            context.startActivity(
-                                                Intent(
-                                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                    Uri.parse("package:${context.packageName}")
-                                                )
-                                            )
-                                        }
+                                        FloatingButtonService.start(context)
                                     } else {
                                         FloatingButtonService.stop(context)
                                     }
@@ -195,5 +166,6 @@ fun MainDashboard() {
                     }
                 }
             }
-        }    }
+        }
+    }
 }

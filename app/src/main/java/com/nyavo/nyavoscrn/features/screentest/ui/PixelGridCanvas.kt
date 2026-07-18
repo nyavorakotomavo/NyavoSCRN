@@ -186,15 +186,18 @@ fun PixelGridCanvas(
 private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
     val progress = effect.ripple.value
     val maxRadius = 90f
+    
     drawCircle(
         color = Color(0xFFB300E6).copy(alpha = (1f - progress) * 0.6f),
         radius = maxRadius * progress,
         center = effect.position
     )
+    
     effect.particles.forEach { particle ->
-        val rad = Math.toRadians(particle.angle.toDouble())
-        val dist = particle.distance * progress
-        val x = effect.position.x + (cos(rad) * dist).toFloat()        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)
+        val rad = Math.toRadians(particle.angle.toDouble())        val dist = particle.distance * progress
+        val x = effect.position.x + (cos(rad) * dist).toFloat()
+        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)
+        
         drawCircle(
             color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),
             radius = 4f * (1f - progress * 0.5f),
@@ -232,4 +235,4 @@ private fun createPixelGridBitmap(
         }
     }
     return bitmap.asImageBitmap()
-} 
+}

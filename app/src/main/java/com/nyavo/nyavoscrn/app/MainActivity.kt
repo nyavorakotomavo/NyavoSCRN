@@ -1,6 +1,5 @@
 package com.nyavo.nyavoscrn.app
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,121 +46,50 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {            NyavoSCRNTheme {
-                MainDashboard()
-            }
-        }
+        setContent { NyavoSCRNTheme { MainDashboard() } }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboard() {
-    var showScreenTest by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    if (showScreenTest) {
+    var showTest by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    if (showTest) {
         ScreenTestScreen()
     } else {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text("NyavoSCRN", fontWeight = FontWeight.Bold)
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Text(
-                    "Tableau de bord",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Card(
-                    onClick = { showScreenTest = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(20.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.TouchApp,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp)
-                        )
+        Scaffold(topBar = {
+            TopAppBar(title = { Text("NyavoSCRN", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer, titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer))
+        }) { padding ->
+            Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text("Tableau de bord", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                Card(onClick = { showTest = true }, modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.TouchApp, contentDescription = null, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.width(16.dp))
                         Column {
-                            Text(
-                                "Test d'écran",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Détecter les zones mortes",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text("Test d'écran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Détecter les zones mortes", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
-
-                var isServiceRunning by remember { mutableStateOf(false) }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
+                var isRunning by remember { mutableStateOf(false) }
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.AddCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Boutons flottants",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold                                )
-                                Text(
-                                    "Contrôle hors zones mortes",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Text("Boutons flottants", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text("Contrôle hors zones mortes", style = MaterialTheme.typography.bodyMedium)
                             }
-                            Switch(
-                                checked = isServiceRunning,
-                                onCheckedChange = { enabled ->
-                                    isServiceRunning = enabled
-                                    if (enabled) {
-                                        FloatingButtonService.start(context)
-                                    } else {
-                                        FloatingButtonService.stop(context)
-                                    }
-                                }
-                            )
+                            Switch(checked = isRunning, onCheckedChange = { enabled ->
+                                isRunning = enabled
+                                if (enabled) FloatingButtonService.start(ctx) else FloatingButtonService.stop(ctx)
+                            })
                         }
                     }
                 }

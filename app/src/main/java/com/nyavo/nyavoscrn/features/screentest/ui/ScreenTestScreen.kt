@@ -1,15 +1,266 @@
-package com.nyavo.nyavoscrn.features.screentest.domain
+package com.nyavo.nyavoscrn.features.screentest.ui
 
-sealed class ScreenTestPhase {
-    object Instructions : ScreenTestPhase()
-    object ActiveTest : ScreenTestPhase()
-    object FalsePositiveDetection : ScreenTestPhase()
-    object Completed : ScreenTestPhase()
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
+import com.nyavo.nyavoscrn.core.designsystem.theme.Violet900
+import com.nyavo.nyavoscrn.core.designsystem.theme.Violet400
+import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneDeadColor
+import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneFalsePositiveColor
+import com.nyavo.nyavoscrn.features.screentest.domain.ScreenTestEngine
+import com.nyavo.nyavoscrn.features.screentest.domain.ScreenTestPhase
+import com.nyavo.nyavoscrn.features.screentest.domain.TestZone
+import kotlinx.coroutines.delay
+
+@Composable
+fun ScreenTestScreen(modifier: Modifier = Modifier) {
+    val rows = ScreenTestEngine.DEFAULT_ROWS
+    val cols = ScreenTestEngine.DEFAULT_COLS
+
+    var zones by remember { mutableStateOf(ScreenTestEngine.buildZones(rows, cols)) }
+    var phase by remember { mutableStateOf<ScreenTestPhase>(ScreenTestPhase.Instructions) }
+    var currentZoneIndex by remember { mutableStateOf(0) }
+    val progress = ScreenTestEngine.computeProgress(zones)
+
+    val activeZoneId = if (phase == ScreenTestPhase.ActiveTest && currentZoneIndex < zones.size) {
+        zones[currentZoneIndex].id    } else null
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Violet900)
+    ) {
+        when (phase) {
+            ScreenTestPhase.Instructions -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures {
+                                phase = ScreenTestPhase.ActiveTest
+                            }
+                        }
+                ) {
+                    PixelGridCanvas(
+                        zones = zones,
+                        rows = rows,
+                        cols = cols,
+                        activeZoneId = null,
+                        onZoneTap = { _, _ -> },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    TestOverlay(
+                        phase = phase,
+                        currentZoneIndex = 0,
+                        totalZones = zones.size
+                    )
+                }
+            }
+
+            ScreenTestPhase.ActiveTest -> {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    PixelGridCanvas(
+                        zones = zones,
+                        rows = rows,
+                        cols = cols,
+                        activeZoneId = activeZoneId,
+                        onZoneTap = { zone, _ ->
+                            zones = ScreenTestEngine.markZoneTested(zones, zone.id, working = true)
+                            if (currentZoneIndex < zones.size - 1) {
+                                currentZoneIndex++
+                            } else {
+                                phase = ScreenTestPhase.FalsePositiveDetection
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()                    )
+                    TestOverlay(
+                        phase = phase,
+                        currentZoneIndex = currentZoneIndex,
+                        totalZones = zones.size
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(24.dp)
+                )
+            }
+
+            ScreenTestPhase.FalsePositiveDetection -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                val configuration = LocalConfiguration.current
+                                val screenWidth = configuration.screenWidthDp.dp.value
+                                val screenHeight = configuration.screenHeightDp.dp.value
+                                val zoneWidthPx = screenWidth / cols
+                                val zoneHeightPx = screenHeight / rows
+                                val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
+                                val row = (offset.y / zoneHeightPx).toInt().coerceIn(0, rows - 1)
+                                val zone = zones.firstOrNull { it.row == row && it.col == col }
+                                if (zone != null) {
+                                    zones = ScreenTestEngine.markFalsePositive(zones, zone.id)
+                                }
+                            }
+                        }
+                ) {
+                    PixelGridCanvas(
+                        zones = zones,
+                        rows = rows,
+                        cols = cols,
+                        activeZoneId = null,
+                        onZoneTap = { _, _ -> },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    TestOverlay(
+                        phase = phase,
+                        currentZoneIndex = currentZoneIndex,
+                        totalZones = zones.size
+                    )
+                }
+                LaunchedEffect(Unit) {
+                    delay(ScreenTestEngine.FALSE_POSITIVE_DURATION_MS)
+                    phase = ScreenTestPhase.Completed
+                }
+            }
+
+            ScreenTestPhase.Completed -> {
+                ResultsScreen(
+                    zones = zones,
+                    rows = rows,
+                    cols = cols,
+                    onRestart = {
+                        zones = ScreenTestEngine.buildZones(rows, cols)
+                        currentZoneIndex = 0
+                        phase = ScreenTestPhase.Instructions
+                    },
+                    onSaveProfile = { }
+                )
+            }
+        }
+    }
 }
 
-data class ScreenTestState(
-    val phase: ScreenTestPhase = ScreenTestPhase.Instructions,
-    val zones: List<TestZone> = emptyList(),
-    val currentZoneIndex: Int = 0,
-    val progress: Float = 0f
-)
+@Composable
+private fun ResultsScreen(
+    zones: List<TestZone>,
+    rows: Int,
+    cols: Int,
+    onRestart: () -> Unit,
+    onSaveProfile: () -> Unit
+) {
+    val workingZones = zones.count { it.isTested && it.isWorking && !it.isFalsePositive }
+    val totalTestedZones = zones.count { it.isTested }
+    val successRate = if (totalTestedZones > 0) {
+        (workingZones.toFloat() / totalTestedZones.toFloat()) * 100
+    } else 0f
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Violet900)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(top = 32.dp)
+        ) {            Text(
+                text = "Test terminé",
+                style = MaterialTheme.typography.headlineLarge,
+                color = Color.White
+            )
+            Text(
+                text = "${workingZones}/${totalTestedZones} zones fonctionnelles",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Text(
+                text = String.format("%.1f%%", successRate),
+                style = MaterialTheme.typography.displayMedium,
+                color = Color(0xFFCC00FF),
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(cols),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            items(zones) { zone ->
+                val color = when {
+                    zone.isFalsePositive -> ZoneFalsePositiveColor
+                    !zone.isWorking -> ZoneDeadColor
+                    zone.isTested && zone.isWorking -> Violet400
+                    else -> Color(0xFF1A0033)
+                }
+                Box(
+                    modifier = Modifier
+                        .padding(1.dp)
+                        .background(color)
+                        .fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Color.Black.copy(alpha = 0.2f)
+                            )
+                    )
+                }
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = onRestart,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Recommencer le test")
+            }
+            Button(
+                onClick = onSaveProfile,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false
+            ) {
+                Text("Sauvegarder le profil (bientôt)")
+            }
+        }
+    }
+}

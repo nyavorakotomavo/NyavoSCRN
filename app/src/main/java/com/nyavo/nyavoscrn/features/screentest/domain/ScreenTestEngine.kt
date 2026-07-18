@@ -1,7 +1,6 @@
 package com.nyavo.nyavoscrn.features.screentest.domain
 
 object ScreenTestEngine {
-
     const val DEFAULT_ROWS = 10
     const val DEFAULT_COLS = 6
     const val FALSE_POSITIVE_DURATION_MS = 5000L
@@ -32,11 +31,6 @@ object ScreenTestEngine {
 
     fun computeProgress(zones: List<TestZone>): Float {
         if (zones.isEmpty()) return 0f
-        val tested = zones.count { it.isTested }
-        return tested.toFloat() / zones.size.toFloat()
-    }
-
-    fun findZoneAt(zones: List<TestZone>, row: Int, col: Int): TestZone? {
-        return zones.firstOrNull { it.row == row && it.col == col }
+        return zones.count { it.isTested }.toFloat() / zones.size.toFloat()
     }
 }

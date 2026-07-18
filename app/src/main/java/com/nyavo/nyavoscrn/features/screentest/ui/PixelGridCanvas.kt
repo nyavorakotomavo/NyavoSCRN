@@ -14,8 +14,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGesturesimport androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -42,11 +43,11 @@ import com.nyavo.nyavoscrn.core.designsystem.theme.darken
 import com.nyavo.nyavoscrn.core.designsystem.theme.lighten
 import com.nyavo.nyavoscrn.features.screentest.domain.TestZone
 import kotlinx.coroutines.launch
-import kotlin.math.min
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
-private data class TouchEffect(
-    val id: Long,
+private data class TouchEffect(    val id: Long,
     val position: Offset,
     val ripple: Animatable<Float, *>,
     val particles: List<Particle>
@@ -63,7 +64,8 @@ private fun buildParticles(count: Int = 8): List<Particle> {
             angle = Random.nextFloat() * 360f,
             distance = 40f + Random.nextFloat() * 40f
         )
-    }}
+    }
+}
 
 @Composable
 fun PixelGridCanvas(
@@ -94,7 +96,6 @@ fun PixelGridCanvas(
         ),
         label = "pulseAlpha"
     )
-
     var baseBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
     Canvas(
@@ -112,7 +113,8 @@ fun PixelGridCanvas(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
                     val effect = TouchEffect(
-                        id = System.nanoTime(),                        position = offset,
+                        id = System.nanoTime(),
+                        position = offset,
                         ripple = Animatable(0f),
                         particles = buildParticles()
                     )
@@ -144,7 +146,6 @@ fun PixelGridCanvas(
                 pixelSizePx = pixelSizePx
             )
         }
-
         baseBitmap?.let { drawImage(it) }
 
         val zoneWidthPx = size.width / cols
@@ -161,7 +162,8 @@ fun PixelGridCanvas(
                 else -> null
             }
 
-            if (overlayColor != null) {                val scale = zoneScales[zone.id]?.value ?: 1f
+            if (overlayColor != null) {
+                val scale = zoneScales[zone.id]?.value ?: 1f
                 val cx = left + zoneWidthPx / 2f
                 val cy = top + zoneHeightPx / 2f
                 val w = zoneWidthPx * scale
@@ -169,7 +171,7 @@ fun PixelGridCanvas(
                 drawRect(
                     color = overlayColor,
                     topLeft = Offset(cx - w / 2f, cy - h / 2f),
-                    size = androidx.compose.ui.geometry.Size(w, h)
+                    size = Size(w, h)
                 )
             }
         }
@@ -191,9 +193,8 @@ private fun DrawScope.drawTouchEffect(effect: TouchEffect) {
     effect.particles.forEach { particle ->
         val rad = Math.toRadians(particle.angle.toDouble())
         val dist = particle.distance * progress
-        val x = effect.position.x + (kotlin.math.cos(rad) * dist).toFloat()
-        val y = effect.position.y + (kotlin.math.sin(rad) * dist).toFloat() - (progress * 60f)
-        drawCircle(
+        val x = effect.position.x + (cos(rad) * dist).toFloat()
+        val y = effect.position.y + (sin(rad) * dist).toFloat() - (progress * 60f)        drawCircle(
             color = Color(0xFFCC00FF).copy(alpha = (1f - progress).coerceIn(0f, 1f)),
             radius = 4f * (1f - progress * 0.5f),
             center = Offset(x, y)
@@ -210,7 +211,8 @@ private fun createPixelGridBitmap(
     val canvas = android.graphics.Canvas(bitmap)
     val paint = Paint()
 
-    val cols = (widthPx / pixelSizePx).toInt() + 1    val rows = (heightPx / pixelSizePx).toInt() + 1
+    val cols = (widthPx / pixelSizePx).toInt() + 1
+    val rows = (heightPx / pixelSizePx).toInt() + 1
 
     for (row in 0 until rows) {
         for (col in 0 until cols) {

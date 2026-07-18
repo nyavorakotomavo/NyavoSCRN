@@ -10,7 +10,8 @@ object ScreenTestEngine {
         val zones = mutableListOf<TestZone>()
         var id = 0
         for (row in 0 until rows) {
-            for (col in 0 until cols) {                zones.add(TestZone(id = id, row = row, col = col))
+            for (col in 0 until cols) {
+                zones.add(TestZone(id = id, row = row, col = col))
                 id++
             }
         }

@@ -81,7 +81,10 @@ class TapAccessibilityService : AccessibilityService() {
     /**
      * Exécute une action globale (ex: retour, écran d'accueil).
      */
-    fun performGlobalAction(action: Int): Boolean {
+    override fun performGlobalAction(action: Int): Boolean {
+        return super.performGlobalAction(action)
+    }
+fun performGlobalAction(action: Int): Boolean {
         return super.performGlobalAction(action)
     }
 }

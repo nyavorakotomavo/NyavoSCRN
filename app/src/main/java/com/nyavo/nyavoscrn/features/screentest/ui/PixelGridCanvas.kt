@@ -232,4 +232,4 @@ private fun createPixelGridBitmap(
         }
     }
     return bitmap.asImageBitmap()
-}
+} 

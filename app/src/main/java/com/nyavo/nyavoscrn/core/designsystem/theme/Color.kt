@@ -38,17 +38,4 @@ fun Color.darken(factor: Float): Color {
         blue = (blue * (1f - factor)).coerceIn(0f, 1f),
         alpha = alpha
     )
-}EOF
-
-# 3. TestZone.kt
-cat > app/src/main/java/com/nyavo/nyavoscrn/features/screentest/domain/TestZone.kt << 'EOF'
-package com.nyavo.nyavoscrn.features.screentest.domain
-
-data class TestZone(
-    val id: Int,
-    val row: Int,
-    val col: Int,
-    val isTested: Boolean = false,
-    val isWorking: Boolean = true,
-    val isFalsePositive: Boolean = false
-)
+}

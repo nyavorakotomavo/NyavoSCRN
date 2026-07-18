@@ -27,8 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import com.nyavo.nyavoscrn.core.designsystem.theme.Violet900
 import com.nyavo.nyavoscrn.core.designsystem.theme.Violet400
+import com.nyavo.nyavoscrn.core.designsystem.theme.Violet900
 import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneDeadColor
 import com.nyavo.nyavoscrn.core.designsystem.theme.ZoneFalsePositiveColor
 import com.nyavo.nyavoscrn.features.screentest.domain.ScreenTestEngine
@@ -119,8 +119,8 @@ fun ScreenTestScreen(modifier: Modifier = Modifier) {
                         .pointerInput(Unit) {
                             detectTapGestures { offset ->
                                 val configuration = LocalConfiguration.current
-                                val screenWidth = configuration.screenWidthDp.dp.value
-                                val screenHeight = configuration.screenHeightDp.dp.value
+                                val screenWidth = configuration.screenWidthDp.toFloat()
+                                val screenHeight = configuration.screenHeightDp.toFloat()
                                 val zoneWidthPx = screenWidth / cols
                                 val zoneHeightPx = screenHeight / rows
                                 val col = (offset.x / zoneWidthPx).toInt().coerceIn(0, cols - 1)
@@ -233,25 +233,17 @@ private fun ResultsScreen(
                         .padding(1.dp)
                         .background(color)
                         .fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Color.Black.copy(alpha = 0.2f)
-                            )
-                    )
-                }
+                )
             }
         }
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
                 onClick = onRestart,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                modifier = Modifier.fillMaxWidth()            ) {
                 Text("Recommencer le test")
             }
             Button(

@@ -219,4 +219,17 @@ private fun createPixelGridBitmap(
         for (col in 0 until cols) {
             val x = col * pixelSizePx
             val y = row * pixelSizePx
-            val baseColor = if ((row + col) % 2 == 0)
+            val baseColor = if ((row + col) % 2 == 0) Color(0xFF530080) else Color(0xFF660099)
+            val lightColor = baseColor.lighten(0.3f)
+            val darkColor = baseColor.darken(0.3f)
+
+            paint.shader = LinearGradient(
+                x, y, x + pixelSizePx, y + pixelSizePx,
+                lightColor.toArgb(), darkColor.toArgb(),
+                Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(x, y, x + pixelSizePx, y + pixelSizePx, paint)
+        }
+    }
+    return bitmap.asImageBitmap()
+}

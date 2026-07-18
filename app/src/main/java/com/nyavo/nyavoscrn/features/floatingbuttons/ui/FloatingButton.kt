@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getByValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,5 +46,71 @@ fun FloatingButton(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val ¾'°
+    val view = LocalView.current    val scope = rememberCoroutineScope()
+    var offsetX by remember { mutableFloatStateOf(button.x) }
+    var offsetY by remember { mutableFloatStateOf(button.y) }
+    
+    val pulseAnim = remember { Animatable(1f) }
+    val scale by pulseAnim.asState()
+    val size = button.sizeDp.dp
+    val color = Color(button.colorHex)
+    
+    val iconVector = when (button.iconType) {
+        FloatingButtonEntity.IconType.PLUS -> Icons.Default.Add
+        FloatingButtonEntity.IconType.BACK -> Icons.Default.ArrowBack
+        FloatingButtonEntity.IconType.HOME -> Icons.Default.Home
+        else -> Icons.Default.Add
+    }
+    
+    LaunchedEffect(button.x, button.y) {
+        offsetX = button.x
+        offsetY = button.y
+    }
+    
+    Box(
+        modifier = modifier
+            .offset(
+                x = (offsetX - button.sizeDp / 2).dp,
+                y = (offsetY - button.sizeDp / 2).dp
+            )
+            .size(size)
+            .scale(scale)
+            .shadow(8.dp, CircleShape)
+            .background(color, CircleShape)
+            .pointerInput(isEditMode) {
+                if (isEditMode) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        offsetX = (offsetX + dragAmount.x).coerceIn(
+                            button.sizeDp / 2,
+                            screenWidth - button.sizeDp / 2
+                        )
+                        offsetY = (offsetY + dragAmount.y).coerceIn(
+                            button.sizeDp / 2,
+                            screenHeight - button.sizeDp / 2
+                        )
+                        onPositionChanged(offsetX, offsetY)
+                    }
+                } else {
+                    detectTapGestures(
+                        onTap = {
+                            scope.launch {
+                                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)                                pulseAnim.animateTo(targetValue = 0.7f, animationSpec = tween(100))
+                                pulseAnim.animateTo(targetValue = 1f, animationSpec = spring())
+                            }
+                            onTap()
+                        },
+                        onLongPress = { onLongPress() }
+                    )
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = iconVector,
+            contentDescription = "Floating button",
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.5f)
+        )
+    }
+}

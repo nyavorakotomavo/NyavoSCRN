@@ -34,7 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getByValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,8 +46,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.dpimport androidx.compose.ui.window.Popup
+import androidx.compose.runtime.collectAsState
 import com.nyavo.nyavoscrn.features.floatingbuttons.data.FloatingButtonEntity
 import com.nyavo.nyavoscrn.features.floatingbuttons.domain.FloatingButtonManager
 import com.nyavo.nyavoscrn.features.floatingbuttons.service.TapSimulator
@@ -82,7 +82,7 @@ fun FloatingButtonEditor(
                     if (!isEditMode) {
                         val target = manager.findNearestWorkingZone(Offset(button.x, button.y))
                         target?.let {
-                            TapSimulator.simulateTap(it.x, it.y)
+                            TapSimulator.simulateTap(context, it.x, it.y)
                         }
                     }
                 },
@@ -95,8 +95,7 @@ fun FloatingButtonEditor(
             )
         }
         
-        AnimatedVisibility(
-            visible = isEditMode,
+        AnimatedVisibility(            visible = isEditMode,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -111,16 +110,11 @@ fun FloatingButtonEditor(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilledIconButton(onClick = {
-                        manager.addButton(screenWidth / 2, screenHeight / 2)
-                    }) {
-                        Icon(Isons.Default.Add, "Add button")
+                    FilledIconButton(onClick = { manager.addButton(screenWidth / 2, screenHeight / 2) }) {
+                        Icon(Icons.Default.Add, "Add button")
                     }
-                    Text("Mode Édition", style = MaterialTheme.typography.titleMedium)
-                    FilledIconButton(onClick = {
-                        manager.toggleEditMode()
-                        onDismiss()
-                    }) {
+                    Text("Mode Edition", style = MaterialTheme.typography.titleMedium)
+                    FilledIconButton(onClick = { manager.toggleEditMode(); onDismiss() }) {
                         Icon(Icons.Default.Close, "Done")
                     }
                 }
@@ -150,8 +144,7 @@ fun FloatingButtonEditor(
                     onIconChange = { icon ->
                         manager.updateButton(selectedButton!!.copy(iconType = icon))
                     },
-                    onDelete = {
-                        manager.removeButton(selectedButton!!.id)
+                    onDelete = {                        manager.removeButton(selectedButton!!.id)
                         showContextMenu = false
                     },
                     onDismiss = { showContextMenu = false }
@@ -171,15 +164,15 @@ private fun ContextMenu(
     onDismiss: () -> Unit
 ) {
     Card(
-        modifier = Modifier.width(280dp).padding(16dp),
+        modifier = Modifier.width(280.dp).padding(16.dp),
         elevation = CardDefaults.cardElevation(8.dp)
     ) {
-        Column(modifier = Modifier.padding(16dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text("Configurer le bouton", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(12dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Text("Taille", style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(48f, 64f, 80f).forEach { size ->
                     FilterChip(
                         selected = button.sizeDp == size,
@@ -188,40 +181,36 @@ private fun ContextMenu(
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             Text("Couleur", style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8dp)) {
-                listOf(0xFF6B4EFFL, 0xFFF4757L, 0xFF2ED573L, 0xFF1E90FFL, 0xFFFA502L).forEach { colorHex ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0xFF6B4EFFL, 0xFFFF4757L, 0xFF2ED573L, 0xFF1E90FFL, 0xFFFFA502L).forEach { colorHex ->
                     Box(
                         modifier = Modifier
-                            .size(32dp)
-                            .shadow(4dp, CircleShape)
+                            .size(32.dp)
+                            .shadow(4.dp, CircleShape)
                             .background(Color(colorHex), CircleShape)
                             .then(
                                 if (button.colorHex == colorHex)
-                                    Modifier.padding(2dp).background(Color.White, CircleShape).padding($dp).background(Color(colorHex), CircleShape)
-                                else Modifier
+                                    Modifier.padding(2.dp).background(Color.White, CircleShape).padding(2.dp).background(Color(colorHex), CircleShape)                                else Modifier
                             )
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
             
-            Spacer(modifier = Modifier.height(8dp))
-            
-            Text("Icône", style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8dp)) {
+            Text("Icone", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FloatingButtonEntity.IconType.values().forEach { type ->
                     FilterChip(
                         selected = button.iconType == type,
                         onClick = { onIconChange(type) },
                         label = { Text(type.name.take(1)) }
                     )
+                }
             }
-            }
-            
-            Spacer(modifier = Modifier.height(16dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Button(
                 onClick = onDelete,
@@ -229,7 +218,7 @@ private fun ContextMenu(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Delete, null)
-                Spacer(modifier = Modifier.width(8dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Supprimer")
             }
         }

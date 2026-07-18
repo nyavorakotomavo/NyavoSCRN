@@ -6,12 +6,12 @@ val Violet900 = Color(0xFF0A0014)
 val Violet800 = Color(0xFF1A0033)
 val Violet700 = Color(0xFF2D004D)
 val Violet600 = Color(0xFF400066)
-val Violet500 = Color(0xFF530080) // Nuance 1 : écran qui marche (bleu-violet)
+val Violet500 = Color(0xFF530080)
 val Violet400 = Color(0xFF660099)
-val Violet300 = Color(0xFF8000B3) // Nuance 2 : faux touchers
+val Violet300 = Color(0xFF8000B3)
 val Violet200 = Color(0xFF9900CC)
 val Violet100 = Color(0xFFB300E6)
-val Violet50 = Color(0xFFCC00FF)  // Zone active (violet lumineux)
+val Violet50 = Color(0xFFCC00FF)
 
 val ZoneDeadColor = Color(0xFFE53935)
 val ZoneFalsePositiveColor = Violet300

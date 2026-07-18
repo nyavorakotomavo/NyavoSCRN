@@ -23,7 +23,8 @@ import com.nyavo.nyavoscrn.features.screentest.domain.ScreenTestPhase
 
 @Composable
 fun TestOverlay(
-    phase: ScreenTestPhase,    currentZoneIndex: Int,
+    phase: ScreenTestPhase,
+    currentZoneIndex: Int,
     totalZones: Int,
     modifier: Modifier = Modifier
 ) {
